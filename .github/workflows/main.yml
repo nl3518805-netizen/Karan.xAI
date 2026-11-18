@@ -1,0 +1,60 @@
+
+name: Karan.xAI Android APK Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Extract Android Project ZIP
+        run: |
+          unzip -q KaranXAI-Android.zip -d android-project
+
+      - name: Find Gradle Wrapper
+        run: |
+          GRADLEW=$(find android-project -type f -name gradlew -print -quit)
+
+          if [ -z "$GRADLEW" ]; then
+            echo "ERROR: Gradle wrapper not found"
+            find android-project -maxdepth 4 -type f | head -100
+            exit 1
+          fi
+
+          PROJECT_DIR=$(dirname "$GRADLEW")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+          sed -i 's/\r$//' "$GRADLEW"
+          chmod +x "$GRADLEW"
+
+      - name: Build Debug APK
+        run: |
+          cd "$PROJECT_DIR"
+          ./gradlew --no-daemon assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Karan-xAI-APK
+          path: android-project/**/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
